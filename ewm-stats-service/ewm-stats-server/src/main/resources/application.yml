@@ -1,0 +1,20 @@
+server:
+  port: 9090
+
+spring:
+  application:
+    name: ewm-stats-server
+  datasource:
+    url: jdbc:postgresql://localhost:6541/ewm-stats
+    username: stats
+    password: stats
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
