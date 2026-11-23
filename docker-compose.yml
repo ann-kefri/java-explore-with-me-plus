@@ -22,9 +22,10 @@ services:
       - POSTGRES_USER=stats
       - POSTGRES_PASSWORD=stats
 
-  ewm-service:
-    ports:
-      - "8080:8080"
-
-  ewm-db:
-    image: postgres:16.1
+# На этапе 1 основной сервис не запускаем, поэтому эти секции закомментированы
+#  ewm-service:
+#    ports:
+#      - "8080:8080"
+#
+#  ewm-db:
+#    image: postgres:16.1
