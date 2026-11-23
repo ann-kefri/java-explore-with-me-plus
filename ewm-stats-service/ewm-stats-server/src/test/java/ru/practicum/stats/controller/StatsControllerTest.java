@@ -30,14 +30,12 @@ class StatsControllerTest {
     void givenValidHit_whenPostHit_thenReturnsCreated() throws Exception {
         mockMvc.perform(post("/hit")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "app": "ewm-main-service",
-                                  "uri": "/events/1",
-                                  "ip": "192.168.1.1",
-                                  "timestamp": "2026-11-23 12:00:00"
-                                }
-                                """))
+                        .content("{\n" +
+                                 "  \"app\": \"ewm-main-service\",\n" +
+                                 "  \"uri\": \"/events/1\",\n" +
+                                 "  \"ip\": \"192.168.1.1\",\n" +
+                                 "  \"timestamp\": \"2026-11-23 12:00:00\"\n" +
+                                 "}\n"))
                 .andExpect(status().isCreated());
 
         verify(statsService).saveHit(
@@ -52,13 +50,11 @@ class StatsControllerTest {
     void givenInvalidHit_whenPostHit_thenReturnsBadRequest() throws Exception {
         mockMvc.perform(post("/hit")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "app": "",
-                                  "uri": "/events/1",
-                                  "ip": "192.168.1.1"
-                                }
-                                """))
+                        .content("{\n" +
+                                 "  \"app\": \"\",\n" +
+                                 "  \"uri\": \"/events/1\",\n" +
+                                 "  \"ip\": \"192.168.1.1\"\n" +
+                                 "}\n"))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(statsService);
