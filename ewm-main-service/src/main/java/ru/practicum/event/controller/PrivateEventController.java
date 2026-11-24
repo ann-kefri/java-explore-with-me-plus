@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.NewEventDto;
 import ru.practicum.event.dto.UpdateEventUserRequest;
-import ru.practicum.event.service.EventService;
+import ru.practicum.event.service.PrivateEventService;
 
 import java.util.List;
 
@@ -27,7 +27,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PrivateEventController {
 
-    private final EventService eventService;
+    private final PrivateEventService eventService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

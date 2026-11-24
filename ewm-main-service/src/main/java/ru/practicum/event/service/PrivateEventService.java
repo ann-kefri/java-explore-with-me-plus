@@ -25,16 +25,16 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class EventService {
+public class PrivateEventService {
 
     private final EventRepository eventRepository;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final EventMapper eventMapper;
+    private final EventUpdater eventUpdater;
 
     @Transactional
     public EventFullDto createEvent(Long userId, NewEventDto dto) {
-
         User initiator = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(
                         "User with id=" + userId + " was not found"
@@ -52,7 +52,6 @@ public class EventService {
         }
 
         Event event = eventMapper.toEntity(dto, initiator, category);
-
         Event savedEvent = eventRepository.save(event);
 
         return eventMapper.toFullDto(savedEvent, 0L, 0L);
@@ -113,26 +112,7 @@ public class EventService {
             );
         }
 
-        if (dto.annotation() != null) {
-            event.setAnnotation(dto.annotation());
-        }
-
-        if (dto.description() != null) {
-            event.setDescription(dto.description());
-        }
-
-        if (dto.title() != null) {
-            event.setTitle(dto.title());
-        }
-
-        if (dto.category() != null) {
-            Category category = categoryRepository.findById(dto.category())
-                    .orElseThrow(() -> new NotFoundException(
-                            "Category with id=" + dto.category() + " was not found"
-                    ));
-
-            event.setCategory(category);
-        }
+        eventUpdater.apply(event, dto);
 
         if (dto.eventDate() != null) {
             if (dto.eventDate().isBefore(LocalDateTime.now().plusHours(2))) {
@@ -142,25 +122,6 @@ public class EventService {
             }
 
             event.setEventDate(dto.eventDate());
-        }
-
-        if (dto.location() != null) {
-            event.setLocation(new ru.practicum.event.model.Location(
-                    dto.location().lat(),
-                    dto.location().lon()
-            ));
-        }
-
-        if (dto.paid() != null) {
-            event.setPaid(dto.paid());
-        }
-
-        if (dto.participantLimit() != null) {
-            event.setParticipantLimit(dto.participantLimit());
-        }
-
-        if (dto.requestModeration() != null) {
-            event.setRequestModeration(dto.requestModeration());
         }
 
         if (dto.stateAction() != null) {

@@ -3,7 +3,6 @@ package ru.practicum.event.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
@@ -12,8 +11,10 @@ import ru.practicum.category.repository.CategoryRepository;
 import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.LocationDto;
 import ru.practicum.event.dto.NewEventDto;
+import ru.practicum.event.dto.UpdateEventAdminRequest;
 import ru.practicum.event.dto.UpdateEventUserRequest;
 import ru.practicum.event.mapper.EventMapper;
+import ru.practicum.event.model.AdminEventStateAction;
 import ru.practicum.event.model.Event;
 import ru.practicum.event.model.EventState;
 import ru.practicum.event.model.UserEventStateAction;
@@ -41,7 +42,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class EventServiceTest {
+class PrivateEventServiceTest {
 
     @Mock
     private EventRepository eventRepository;
@@ -55,13 +56,22 @@ class EventServiceTest {
     @Mock
     private EventMapper eventMapper;
 
-    @InjectMocks
-    private EventService eventService;
+    private PrivateEventService eventService;
 
     private NewEventDto dto;
 
     @BeforeEach
     void setUp() {
+        EventUpdater eventUpdater = new EventUpdater(categoryRepository);
+
+        eventService = new PrivateEventService(
+                eventRepository,
+                userRepository,
+                categoryRepository,
+                eventMapper,
+                eventUpdater
+        );
+
         dto = new NewEventDto(
                 "Большой концерт современной инструментальной музыки",
                 1L,
@@ -312,6 +322,24 @@ class EventServiceTest {
         );
 
         verify(eventMapper, never()).toFullDto(any(), anyLong(), anyLong());
+    }
+
+    private UpdateEventAdminRequest adminRequest(
+            LocalDateTime eventDate,
+            AdminEventStateAction stateAction
+    ) {
+        return new UpdateEventAdminRequest(
+                null,
+                null,
+                null,
+                eventDate,
+                null,
+                null,
+                null,
+                null,
+                stateAction,
+                null
+        );
     }
 
     private Event createPendingEvent() {
