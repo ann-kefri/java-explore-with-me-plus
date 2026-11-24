@@ -3,9 +3,15 @@ package ru.practicum.event.service;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import ru.practicum.category.repository.CategoryRepository;
+import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.UpdateEventAdminRequest;
 import ru.practicum.event.mapper.EventMapper;
 import ru.practicum.event.model.AdminEventStateAction;
@@ -15,6 +21,7 @@ import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -162,6 +170,75 @@ class AdminEventServiceTest {
 
         assertEquals(EventState.PENDING, event.getState());
         verify(eventRepository, never()).save(any());
+    }
+
+    @Test
+    void getAdminEvents_shouldReturnEventsWithoutFilters() {
+        Event first = createPendingEvent();
+
+        Event second = createPendingEvent();
+        second.setId(2L);
+        second.setState(EventState.CANCELED);
+
+        when(eventRepository.findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(first, second)));
+
+        List<EventFullDto> result = eventService.getAdminEvents(
+                null, null, null, null, null, 0, 10
+        );
+
+        assertEquals(2, result.size());
+
+        verify(eventRepository).findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    void getAdminEvents_shouldUseExactOffset() {
+        when(eventRepository.findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        )).thenReturn(Page.empty());
+
+        eventService.getAdminEvents(
+                List.of(1L),
+                List.of(EventState.PUBLISHED),
+                List.of(1L),
+                null,
+                null,
+                5,
+                10
+        );
+
+        ArgumentCaptor<Pageable> captor =
+                ArgumentCaptor.forClass(Pageable.class);
+
+        verify(eventRepository).findAll(
+                any(Specification.class),
+                captor.capture()
+        );
+
+        assertEquals(5, captor.getValue().getOffset());
+        assertEquals(10, captor.getValue().getPageSize());
+    }
+
+    @Test
+    void getAdminEvents_shouldRejectInvalidDateRange() {
+        LocalDateTime start = LocalDateTime.now().plusDays(2);
+        LocalDateTime end = LocalDateTime.now().plusDays(1);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eventService.getAdminEvents(
+                        null, null, null, start, end, 0, 10
+                )
+        );
+
+        verifyNoInteractions(eventRepository);
     }
 
     private UpdateEventAdminRequest adminRequest(
