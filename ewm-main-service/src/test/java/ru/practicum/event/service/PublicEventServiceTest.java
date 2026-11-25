@@ -234,6 +234,63 @@ class PublicEventServiceTest {
         verifyNoInteractions(eventRepository, statsClient);
     }
 
+    @Test
+    void getEvents_shouldReturnViewsForMultipleEvents() {
+        Event first = new Event();
+        first.setId(1L);
+        first.setState(EventState.PUBLISHED);
+        first.setPublishedOn(LocalDateTime.of(2026, 11, 20, 12, 0));
+
+        Event second = new Event();
+        second.setId(2L);
+        second.setState(EventState.PUBLISHED);
+        second.setPublishedOn(LocalDateTime.of(2026, 11, 21, 12, 0));
+
+        Event third = new Event();
+        third.setId(3L);
+        third.setState(EventState.PUBLISHED);
+        third.setPublishedOn(LocalDateTime.of(2026, 11, 22, 12, 0));
+
+        ViewStats firstStats = new ViewStats();
+        firstStats.setApp("ewm-main-service");
+        firstStats.setUri("/events/1");
+        firstStats.setHits(5L);
+
+        ViewStats secondStats = new ViewStats();
+        secondStats.setApp("ewm-main-service");
+        secondStats.setUri("/events/2");
+        secondStats.setHits(2L);
+
+        when(eventRepository.findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(first, second, third)));
+
+        when(statsClient.getStats(
+                eq(first.getPublishedOn()),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1", "/events/2", "/events/3")),
+                eq(true)
+        )).thenReturn(List.of(firstStats, secondStats));
+
+        List<EventShortDto> result = eventService.getEvents(
+                null, null, null, null, null, 0, 10
+        );
+
+        assertEquals(3, result.size());
+
+        verify(eventMapper).toShortDto(first, 0L, 5L);
+        verify(eventMapper).toShortDto(second, 0L, 2L);
+        verify(eventMapper).toShortDto(third, 0L, 0L);
+
+        verify(statsClient).getStats(
+                eq(first.getPublishedOn()),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1", "/events/2", "/events/3")),
+                eq(true)
+        );
+    }
+
     private Event createPublishedEvent() {
         Event event = new Event();
         event.setId(1L);
