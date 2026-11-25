@@ -3,11 +3,11 @@ package ru.practicum.exception;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.util.Map;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -15,29 +15,43 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             IllegalArgumentException.class,
             ConstraintViolationException.class,
-            MethodArgumentNotValidException.class
+            MethodArgumentNotValidException.class,
+            MethodArgumentTypeMismatchException.class,
+            HttpMessageNotReadableException.class
     })
-    public ResponseEntity<Map<String, String>> handleBadRequest(Exception ex) {
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", ex.getMessage()));
+    public ResponseEntity<ApiError> handleBadRequest(Exception ex) {
+        return buildResponse(
+                HttpStatus.BAD_REQUEST,
+                "Incorrectly made request.",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(NotFoundException.class)
-    public ResponseEntity<Map<String, String>> handleNotFound(
-            NotFoundException ex
-    ) {
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", ex.getMessage()));
+    public ResponseEntity<ApiError> handleNotFound(NotFoundException ex) {
+        return buildResponse(
+                HttpStatus.NOT_FOUND,
+                "The required object was not found.",
+                ex.getMessage()
+        );
     }
 
     @ExceptionHandler(ConflictException.class)
-    public ResponseEntity<Map<String, String>> handleConflict(
-            ConflictException ex
+    public ResponseEntity<ApiError> handleConflict(ConflictException ex) {
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "For the requested operation the conditions are not met.",
+                ex.getMessage()
+        );
+    }
+
+    private ResponseEntity<ApiError> buildResponse(
+            HttpStatus status,
+            String reason,
+            String message
     ) {
         return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(Map.of("error", ex.getMessage()));
+                .status(status)
+                .body(ApiError.of(status, reason, message));
     }
 }
