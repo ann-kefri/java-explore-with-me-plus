@@ -50,4 +50,31 @@ public final class EventSpecifications {
                         root.get("eventDate"), rangeEnd
                 );
     }
+
+    public static Specification<Event> published() {
+        return (root, query, cb) ->
+                cb.equal(root.get("state"), EventState.PUBLISHED);
+    }
+
+    public static Specification<Event> byText(String text) {
+        return (root, query, cb) -> {
+            if (text == null || text.isBlank()) {
+                return cb.conjunction();
+            }
+
+            String pattern = "%" + text.toLowerCase() + "%";
+
+            return cb.or(
+                    cb.like(cb.lower(root.get("annotation")), pattern),
+                    cb.like(cb.lower(root.get("description")), pattern)
+            );
+        };
+    }
+
+    public static Specification<Event> byPaid(Boolean paid) {
+        return (root, query, cb) ->
+                paid == null
+                        ? cb.conjunction()
+                        : cb.equal(root.get("paid"), paid);
+    }
 }

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 import ru.practicum.category.dto.CategoryDto;
 import ru.practicum.category.model.Category;
 import ru.practicum.event.dto.EventFullDto;
+import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.dto.LocationDto;
 import ru.practicum.event.dto.NewEventDto;
 import ru.practicum.event.model.Event;
@@ -58,6 +59,30 @@ public class EventMapper {
                 event.getPublishedOn(),
                 event.isRequestModeration(),
                 event.getState(),
+                event.getTitle(),
+                views
+        );
+    }
+
+    public EventShortDto toShortDto(
+            Event event,
+            long confirmedRequests,
+            long views
+    ) {
+        return new EventShortDto(
+                event.getId(),
+                event.getAnnotation(),
+                new CategoryDto(
+                        event.getCategory().getId(),
+                        event.getCategory().getName()
+                ),
+                confirmedRequests,
+                event.getEventDate(),
+                new UserShortDto(
+                        event.getInitiator().getId(),
+                        event.getInitiator().getName()
+                ),
+                event.isPaid(),
                 event.getTitle(),
                 views
         );
