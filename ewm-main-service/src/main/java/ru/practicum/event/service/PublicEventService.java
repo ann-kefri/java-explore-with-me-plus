@@ -11,6 +11,7 @@ import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.mapper.EventMapper;
 import ru.practicum.event.model.Event;
+import ru.practicum.event.model.EventSort;
 import ru.practicum.event.model.EventState;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.event.repository.EventSpecifications;
@@ -20,6 +21,7 @@ import ru.practicum.stats.dto.EndpointHit;
 import ru.practicum.stats.dto.ViewStats;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -69,7 +71,8 @@ public class PublicEventService {
             LocalDateTime rangeStart,
             LocalDateTime rangeEnd,
             int from,
-            int size
+            int size,
+            EventSort sort
     ) {
         if (from < 0 || size < 1) {
             throw new IllegalArgumentException(
@@ -92,18 +95,73 @@ public class PublicEventService {
                 .and(EventSpecifications.after(rangeStart))
                 .and(EventSpecifications.before(rangeEnd));
 
-        Pageable pageable = new OffsetPageRequest(
-                from,
-                size,
-                Sort.by(Sort.Direction.ASC, "eventDate")
-                        .and(Sort.by(Sort.Direction.ASC, "id"))
+        List<Event> events;
+
+        if (sort == EventSort.VIEWS) {
+            // Для сортировки по просмотрам сначала получаем все
+            // подходящие события, без пагинации.
+            events = eventRepository.findAll(spec);
+
+            Map<String, Long> viewsByUri = getViews(events);
+
+            // Сортируем по убыванию просмотров,
+            // затем применяем пагинацию.
+            events = events.stream()
+                    .sorted(
+                            Comparator
+                                    .comparingLong((Event event) ->
+                                            viewsByUri.getOrDefault(
+                                                    "/events/" + event.getId(),
+                                                    0L
+                                            )
+                                    )
+                                    .reversed()
+                                    .thenComparing(Event::getId)
+                    )
+                    .skip(from)
+                    .limit(size)
+                    .toList();
+
+            return events.stream()
+                    .map(event -> eventMapper.toShortDto(
+                            event,
+                            0L,
+                            viewsByUri.getOrDefault(
+                                    "/events/" + event.getId(),
+                                    0L
+                            )
+                    ))
+                    .toList();
+        }
+
+        // EVENT_DATE: сортировку и пагинацию выполняет PostgreSQL.
+        Sort sorting = Sort.by(
+                Sort.Order.asc("eventDate"),
+                Sort.Order.asc("id")
         );
 
-        List<Event> events = eventRepository.findAll(spec, pageable)
+        Pageable pageable = new OffsetPageRequest(from, size, sorting);
+
+        events = eventRepository.findAll(spec, pageable)
                 .getContent();
 
+        Map<String, Long> viewsByUri = getViews(events);
+
+        return events.stream()
+                .map(event -> eventMapper.toShortDto(
+                        event,
+                        0L,
+                        viewsByUri.getOrDefault(
+                                "/events/" + event.getId(),
+                                0L
+                        )
+                ))
+                .toList();
+    }
+
+    private Map<String, Long> getViews(List<Event> events) {
         if (events.isEmpty()) {
-            return List.of();
+            return Map.of();
         }
 
         List<String> uris = events.stream()
@@ -115,26 +173,16 @@ public class PublicEventService {
                 .min(LocalDateTime::compareTo)
                 .orElseThrow();
 
-        List<ViewStats> stats = statsClient.getStats(
-                start,
-                LocalDateTime.now(),
-                uris,
-                true
-        );
-
-        Map<String, Long> viewsByUri = stats.stream()
+        return statsClient.getStats(
+                        start,
+                        LocalDateTime.now(),
+                        uris,
+                        true
+                ).stream()
                 .collect(Collectors.toMap(
                         ViewStats::getUri,
                         ViewStats::getHits,
                         Long::sum
                 ));
-
-        return events.stream()
-                .map(event -> eventMapper.toShortDto(
-                        event,
-                        0L,
-                        viewsByUri.getOrDefault("/events/" + event.getId(), 0L)
-                ))
-                .toList();
     }
 }

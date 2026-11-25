@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.EventShortDto;
+import ru.practicum.event.model.EventSort;
 import ru.practicum.event.service.PublicEventService;
 
 import java.time.LocalDateTime;
@@ -45,7 +46,8 @@ public class PublicEventController {
             LocalDateTime rangeEnd,
 
             @RequestParam(defaultValue = "0") int from,
-            @RequestParam(defaultValue = "10") int size
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "EVENT_DATE") EventSort sort
     ) {
         return eventService.getEvents(
                 text,
@@ -54,7 +56,8 @@ public class PublicEventController {
                 rangeStart,
                 rangeEnd,
                 from,
-                size
+                size,
+                sort
         );
     }
 }

@@ -12,6 +12,7 @@ import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.mapper.EventMapper;
 import ru.practicum.event.model.Event;
+import ru.practicum.event.model.EventSort;
 import ru.practicum.event.model.EventState;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.NotFoundException;
@@ -29,6 +30,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -186,7 +189,7 @@ class PublicEventServiceTest {
                 .thenReturn(dto);
 
         List<EventShortDto> result = eventService.getEvents(
-                null, null, null, null, null, 0, 10
+                null, null, null, null, null, 0, 10, EventSort.EVENT_DATE
         );
 
         assertEquals(1, result.size());
@@ -205,14 +208,14 @@ class PublicEventServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
-                        null, null, null, null, null, -1, 10
+                        null, null, null, null, null, -1, 10, EventSort.EVENT_DATE
                 )
         );
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
-                        null, null, null, null, null, 0, 0
+                        null, null, null, null, null, 0, 0, EventSort.EVENT_DATE
                 )
         );
 
@@ -227,7 +230,7 @@ class PublicEventServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
-                        null, null, null, start, end, 0, 10
+                        null, null, null, start, end, 0, 10, EventSort.EVENT_DATE
                 )
         );
 
@@ -274,7 +277,7 @@ class PublicEventServiceTest {
         )).thenReturn(List.of(firstStats, secondStats));
 
         List<EventShortDto> result = eventService.getEvents(
-                null, null, null, null, null, 0, 10
+                null, null, null, null, null, 0, 10, EventSort.EVENT_DATE
         );
 
         assertEquals(3, result.size());
@@ -289,6 +292,118 @@ class PublicEventServiceTest {
                 eq(List.of("/events/1", "/events/2", "/events/3")),
                 eq(true)
         );
+    }
+
+    @Test
+    void getEvents_shouldSortByViewsBeforePagination() {
+        Event first = createPublishedEvent();
+        first.setId(1L);
+
+        Event second = createPublishedEvent();
+        second.setId(2L);
+
+        Event third = createPublishedEvent();
+        third.setId(3L);
+
+        ViewStats firstStats = new ViewStats();
+        firstStats.setUri("/events/1");
+        firstStats.setHits(2L);
+
+        ViewStats secondStats = new ViewStats();
+        secondStats.setUri("/events/2");
+        secondStats.setHits(5L);
+
+        ViewStats thirdStats = new ViewStats();
+        thirdStats.setUri("/events/3");
+        thirdStats.setHits(10L);
+
+        when(eventRepository.findAll(any(Specification.class)))
+                .thenReturn(List.of(first, second, third));
+
+        when(statsClient.getStats(
+                eq(PUBLISHED_ON),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1", "/events/2", "/events/3")),
+                eq(true)
+        )).thenReturn(List.of(firstStats, secondStats, thirdStats));
+
+        EventShortDto dto = mock(EventShortDto.class);
+
+        when(eventMapper.toShortDto(third, 0L, 10L))
+                .thenReturn(dto);
+
+        List<EventShortDto> result = eventService.getEvents(
+                null, null, null, null, null,
+                0, 1, EventSort.VIEWS
+        );
+
+        assertEquals(1, result.size());
+        assertSame(dto, result.getFirst());
+
+        verify(eventMapper).toShortDto(third, 0L, 10L);
+
+        verify(eventRepository).findAll(any(Specification.class));
+
+        verify(eventRepository, never()).findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        );
+
+        verify(statsClient, times(1)).getStats(
+                eq(PUBLISHED_ON),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1", "/events/2", "/events/3")),
+                eq(true)
+        );
+    }
+
+    @Test
+    void getEvents_shouldReturnSecondPageSortedByViews() {
+        Event first = createPublishedEvent();
+        first.setId(1L);
+
+        Event second = createPublishedEvent();
+        second.setId(2L);
+
+        Event third = createPublishedEvent();
+        third.setId(3L);
+
+        ViewStats firstStats = new ViewStats();
+        firstStats.setUri("/events/1");
+        firstStats.setHits(2L);
+
+        ViewStats secondStats = new ViewStats();
+        secondStats.setUri("/events/2");
+        secondStats.setHits(5L);
+
+        ViewStats thirdStats = new ViewStats();
+        thirdStats.setUri("/events/3");
+        thirdStats.setHits(10L);
+
+        when(eventRepository.findAll(any(Specification.class)))
+                .thenReturn(List.of(first, second, third));
+
+        when(statsClient.getStats(
+                eq(PUBLISHED_ON),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1", "/events/2", "/events/3")),
+                eq(true)
+        )).thenReturn(List.of(firstStats, secondStats, thirdStats));
+
+        EventShortDto dto = mock(EventShortDto.class);
+
+        when(eventMapper.toShortDto(second, 0L, 5L))
+                .thenReturn(dto);
+
+        List<EventShortDto> result = eventService.getEvents(
+                null, null, null, null, null,
+                1, 1, EventSort.VIEWS
+        );
+
+        assertEquals(1, result.size());
+        assertSame(dto, result.getFirst());
+
+        verify(eventMapper).toShortDto(second, 0L, 5L);
     }
 
     private Event createPublishedEvent() {
