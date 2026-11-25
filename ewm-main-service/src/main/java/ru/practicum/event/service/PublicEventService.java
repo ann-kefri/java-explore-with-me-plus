@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import ru.practicum.common.OffsetPageRequest;
 import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.EventShortDto;
@@ -72,7 +74,8 @@ public class PublicEventService {
             LocalDateTime rangeEnd,
             int from,
             int size,
-            EventSort sort
+            EventSort sort,
+            boolean onlyAvailable
     ) {
         if (from < 0 || size < 1) {
             throw new IllegalArgumentException(
@@ -84,6 +87,16 @@ public class PublicEventService {
             && rangeStart.isAfter(rangeEnd)) {
             throw new IllegalArgumentException(
                     "Range start must not be after range end"
+            );
+        }
+
+        if (onlyAvailable) {
+            // TODO: После интеграции модуля заявок фильтровать события,
+            // у которых confirmedRequests < participantLimit.
+            // participantLimit == 0 означает отсутствие ограничения.
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_IMPLEMENTED,
+                    "Filtering by available places is not implemented yet"
             );
         }
 

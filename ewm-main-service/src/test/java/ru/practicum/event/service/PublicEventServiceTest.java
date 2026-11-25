@@ -8,6 +8,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.mapper.EventMapper;
@@ -189,7 +191,8 @@ class PublicEventServiceTest {
                 .thenReturn(dto);
 
         List<EventShortDto> result = eventService.getEvents(
-                null, null, null, null, null, 0, 10, EventSort.EVENT_DATE
+                null, null, null, null,
+                null, 0, 10, EventSort.EVENT_DATE, false
         );
 
         assertEquals(1, result.size());
@@ -208,14 +211,16 @@ class PublicEventServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
-                        null, null, null, null, null, -1, 10, EventSort.EVENT_DATE
+                        null, null, null, null,
+                        null, -1, 10, EventSort.EVENT_DATE, false
                 )
         );
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
-                        null, null, null, null, null, 0, 0, EventSort.EVENT_DATE
+                        null, null, null, null,
+                        null, 0, 0, EventSort.EVENT_DATE, false
                 )
         );
 
@@ -230,7 +235,7 @@ class PublicEventServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
-                        null, null, null, start, end, 0, 10, EventSort.EVENT_DATE
+                        null, null, null, start, end, 0, 10, EventSort.EVENT_DATE, false
                 )
         );
 
@@ -277,7 +282,8 @@ class PublicEventServiceTest {
         )).thenReturn(List.of(firstStats, secondStats));
 
         List<EventShortDto> result = eventService.getEvents(
-                null, null, null, null, null, 0, 10, EventSort.EVENT_DATE
+                null, null, null, null, null,
+                0, 10, EventSort.EVENT_DATE, false
         );
 
         assertEquals(3, result.size());
@@ -334,7 +340,7 @@ class PublicEventServiceTest {
 
         List<EventShortDto> result = eventService.getEvents(
                 null, null, null, null, null,
-                0, 1, EventSort.VIEWS
+                0, 1, EventSort.VIEWS, false
         );
 
         assertEquals(1, result.size());
@@ -397,13 +403,28 @@ class PublicEventServiceTest {
 
         List<EventShortDto> result = eventService.getEvents(
                 null, null, null, null, null,
-                1, 1, EventSort.VIEWS
+                1, 1, EventSort.VIEWS, false
         );
 
         assertEquals(1, result.size());
         assertSame(dto, result.getFirst());
 
         verify(eventMapper).toShortDto(second, 0L, 5L);
+    }
+
+    @Test
+    void getEvents_shouldRejectOnlyAvailableUntilRequestsAreIntegrated() {
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> eventService.getEvents(
+                        null, null, null, null, null,
+                        0, 10, EventSort.EVENT_DATE, true
+                )
+        );
+
+        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
+
+        verifyNoInteractions(eventRepository, statsClient, eventMapper);
     }
 
     private Event createPublishedEvent() {
