@@ -5,6 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -28,6 +29,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -192,7 +194,7 @@ class PublicEventServiceTest {
 
         List<EventShortDto> result = eventService.getEvents(
                 null, null, null, null,
-                null, 0, 10, EventSort.EVENT_DATE, false
+                null, 0, 10, EventSort.EVENT_DATE, false, "127.0.0.1"
         );
 
         assertEquals(1, result.size());
@@ -212,7 +214,7 @@ class PublicEventServiceTest {
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
                         null, null, null, null,
-                        null, -1, 10, EventSort.EVENT_DATE, false
+                        null, -1, 10, EventSort.EVENT_DATE, false, "127.0.0.1"
                 )
         );
 
@@ -220,7 +222,7 @@ class PublicEventServiceTest {
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
                         null, null, null, null,
-                        null, 0, 0, EventSort.EVENT_DATE, false
+                        null, 0, 0, EventSort.EVENT_DATE, false, "127.0.0.1"
                 )
         );
 
@@ -235,7 +237,8 @@ class PublicEventServiceTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> eventService.getEvents(
-                        null, null, null, start, end, 0, 10, EventSort.EVENT_DATE, false
+                        null, null, null, start, end, 0, 10,
+                        EventSort.EVENT_DATE, false, "127.0.0.1"
                 )
         );
 
@@ -283,7 +286,7 @@ class PublicEventServiceTest {
 
         List<EventShortDto> result = eventService.getEvents(
                 null, null, null, null, null,
-                0, 10, EventSort.EVENT_DATE, false
+                0, 10, EventSort.EVENT_DATE, false, "127.0.0.1"
         );
 
         assertEquals(3, result.size());
@@ -340,7 +343,7 @@ class PublicEventServiceTest {
 
         List<EventShortDto> result = eventService.getEvents(
                 null, null, null, null, null,
-                0, 1, EventSort.VIEWS, false
+                0, 1, EventSort.VIEWS, false, "127.0.0.1"
         );
 
         assertEquals(1, result.size());
@@ -403,7 +406,7 @@ class PublicEventServiceTest {
 
         List<EventShortDto> result = eventService.getEvents(
                 null, null, null, null, null,
-                1, 1, EventSort.VIEWS, false
+                1, 1, EventSort.VIEWS, false, "127.0.0.1"
         );
 
         assertEquals(1, result.size());
@@ -418,13 +421,41 @@ class PublicEventServiceTest {
                 ResponseStatusException.class,
                 () -> eventService.getEvents(
                         null, null, null, null, null,
-                        0, 10, EventSort.EVENT_DATE, true
+                        0, 10, EventSort.EVENT_DATE, true, "127.0.0.1"
                 )
         );
 
         assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
 
         verifyNoInteractions(eventRepository, statsClient, eventMapper);
+    }
+
+    @Test
+    void getEvents_shouldUseDefaultDateRangeWhenDatesAreMissing() {
+        when(eventRepository.findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        )).thenReturn(Page.empty());
+
+        List<EventShortDto> result = eventService.getEvents(
+                null,
+                null,
+                null,
+                null,
+                null,
+                0,
+                10,
+                EventSort.EVENT_DATE,
+                false,
+                "127.0.0.1"
+        );
+
+        assertTrue(result.isEmpty());
+
+        verify(eventRepository).findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        );
     }
 
     private Event createPublishedEvent() {

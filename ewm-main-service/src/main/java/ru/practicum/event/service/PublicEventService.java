@@ -75,7 +75,8 @@ public class PublicEventService {
             int from,
             int size,
             EventSort sort,
-            boolean onlyAvailable
+            boolean onlyAvailable,
+            String ip
     ) {
         if (from < 0 || size < 1) {
             throw new IllegalArgumentException(
@@ -100,15 +101,28 @@ public class PublicEventService {
             );
         }
 
+        LocalDateTime effectiveRangeStart = rangeStart;
+
+        if (rangeStart == null && rangeEnd == null) {
+            effectiveRangeStart = LocalDateTime.now();
+        }
+
         Specification<Event> spec = Specification
                 .where(EventSpecifications.published())
                 .and(EventSpecifications.byText(text))
                 .and(EventSpecifications.byCategories(categories))
                 .and(EventSpecifications.byPaid(paid))
-                .and(EventSpecifications.after(rangeStart))
+                .and(EventSpecifications.after(effectiveRangeStart))
                 .and(EventSpecifications.before(rangeEnd));
 
         List<Event> events;
+
+        statsClient.hit(EndpointHit.builder()
+                .app("ewm-main-service")
+                .uri("/events")
+                .ip(ip)
+                .timestamp(LocalDateTime.now())
+                .build());
 
         if (sort == EventSort.VIEWS) {
             // Для сортировки по просмотрам сначала получаем все

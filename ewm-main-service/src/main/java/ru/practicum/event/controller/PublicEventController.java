@@ -48,7 +48,8 @@ public class PublicEventController {
             @RequestParam(defaultValue = "0") int from,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "EVENT_DATE") EventSort sort,
-            @RequestParam(defaultValue = "false") boolean onlyAvailable
+            @RequestParam(defaultValue = "false") boolean onlyAvailable,
+            HttpServletRequest request
     ) {
         return eventService.getEvents(
                 text,
@@ -59,7 +60,8 @@ public class PublicEventController {
                 from,
                 size,
                 sort,
-                onlyAvailable
+                onlyAvailable,
+                request.getRemoteAddr()
         );
     }
 }
