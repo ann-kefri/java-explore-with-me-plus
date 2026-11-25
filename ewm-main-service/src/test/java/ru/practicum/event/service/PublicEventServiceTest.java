@@ -15,6 +15,8 @@ import ru.practicum.event.model.Event;
 import ru.practicum.event.model.EventState;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.stats.client.StatsClient;
+import ru.practicum.stats.dto.ViewStats;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,6 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -32,32 +36,92 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class PublicEventServiceTest {
 
+    private static final String TEST_IP = "127.0.0.1";
+
+    private static final LocalDateTime PUBLISHED_ON =
+            LocalDateTime.of(2026, 11, 24, 21, 0);
+
     @Mock
     private EventRepository eventRepository;
 
     @Mock
     private EventMapper eventMapper;
 
+    @Mock
+    private StatsClient statsClient;
+
     @InjectMocks
     private PublicEventService eventService;
 
     @Test
     void getEvent_shouldReturnPublishedEvent() {
-        Event event = new Event();
-        event.setId(1L);
-        event.setState(EventState.PUBLISHED);
+        Event event = createPublishedEvent();
 
         EventFullDto dto = mock(EventFullDto.class);
 
         when(eventRepository.findById(1L))
                 .thenReturn(Optional.of(event));
+
+        when(statsClient.getStats(
+                eq(PUBLISHED_ON),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1")),
+                eq(true)
+        )).thenReturn(List.of());
+
         when(eventMapper.toFullDto(event, 0L, 0L))
                 .thenReturn(dto);
 
-        EventFullDto result = eventService.getEvent(1L);
+        EventFullDto result = eventService.getEvent(1L, TEST_IP);
 
         assertSame(dto, result);
         verify(eventRepository).findById(1L);
+
+        verify(statsClient).hit(argThat(hit ->
+                "ewm-main-service".equals(hit.getApp())
+                && "/events/1".equals(hit.getUri())
+                && TEST_IP.equals(hit.getIp())
+                && hit.getTimestamp() != null
+        ));
+
+        verify(statsClient).getStats(
+                eq(PUBLISHED_ON),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1")),
+                eq(true)
+        );
+    }
+
+    @Test
+    void getEvent_shouldReturnActualViews() {
+        Event event = createPublishedEvent();
+
+        ViewStats stats = new ViewStats();
+        stats.setApp("ewm-main-service");
+        stats.setUri("/events/1");
+        stats.setHits(5L);
+
+        EventFullDto dto = mock(EventFullDto.class);
+
+        when(eventRepository.findById(1L))
+                .thenReturn(Optional.of(event));
+
+        when(statsClient.getStats(
+                eq(PUBLISHED_ON),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1")),
+                eq(true)
+        )).thenReturn(List.of(stats));
+
+        when(eventMapper.toFullDto(event, 0L, 5L))
+                .thenReturn(dto);
+
+        EventFullDto result = eventService.getEvent(1L, TEST_IP);
+
+        assertSame(dto, result);
+
+        verify(statsClient).hit(any());
+        verify(eventMapper).toFullDto(event, 0L, 5L);
     }
 
     @Test
@@ -71,10 +135,10 @@ class PublicEventServiceTest {
 
         assertThrows(
                 NotFoundException.class,
-                () -> eventService.getEvent(2L)
+                () -> eventService.getEvent(2L, TEST_IP)
         );
 
-        verifyNoInteractions(eventMapper);
+        verifyNoInteractions(eventMapper, statsClient);
     }
 
     @Test
@@ -88,10 +152,10 @@ class PublicEventServiceTest {
 
         assertThrows(
                 NotFoundException.class,
-                () -> eventService.getEvent(3L)
+                () -> eventService.getEvent(3L, TEST_IP)
         );
 
-        verifyNoInteractions(eventMapper);
+        verifyNoInteractions(eventMapper, statsClient);
     }
 
     @Test
@@ -101,17 +165,15 @@ class PublicEventServiceTest {
 
         assertThrows(
                 NotFoundException.class,
-                () -> eventService.getEvent(99L)
+                () -> eventService.getEvent(99L, TEST_IP)
         );
 
-        verifyNoInteractions(eventMapper);
+        verifyNoInteractions(eventMapper, statsClient);
     }
 
     @Test
     void getEvents_shouldReturnPublishedEvents() {
-        Event event = new Event();
-        event.setId(1L);
-        event.setState(EventState.PUBLISHED);
+        Event event = createPublishedEvent();
 
         EventShortDto dto = mock(EventShortDto.class);
 
@@ -128,7 +190,9 @@ class PublicEventServiceTest {
         );
 
         assertEquals(1, result.size());
-        assertSame(dto, result.get(0));
+        assertSame(dto, result.getFirst());
+
+        verifyNoInteractions(statsClient);
     }
 
     @Test
@@ -147,7 +211,7 @@ class PublicEventServiceTest {
                 )
         );
 
-        verifyNoInteractions(eventRepository);
+        verifyNoInteractions(eventRepository, statsClient);
     }
 
     @Test
@@ -162,6 +226,14 @@ class PublicEventServiceTest {
                 )
         );
 
-        verifyNoInteractions(eventRepository);
+        verifyNoInteractions(eventRepository, statsClient);
+    }
+
+    private Event createPublishedEvent() {
+        Event event = new Event();
+        event.setId(1L);
+        event.setState(EventState.PUBLISHED);
+        event.setPublishedOn(PUBLISHED_ON);
+        return event;
     }
 }

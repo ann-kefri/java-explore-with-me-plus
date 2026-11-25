@@ -15,6 +15,9 @@ import ru.practicum.event.model.EventState;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.event.repository.EventSpecifications;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.stats.client.StatsClient;
+import ru.practicum.stats.dto.EndpointHit;
+import ru.practicum.stats.dto.ViewStats;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,16 +28,35 @@ public class PublicEventService {
 
     private final EventRepository eventRepository;
     private final EventMapper eventMapper;
+    private final StatsClient statsClient;
 
     @Transactional(readOnly = true)
-    public EventFullDto getEvent(Long eventId) {
+    public EventFullDto getEvent(Long eventId, String ip) {
         Event event = eventRepository.findById(eventId)
                 .filter(e -> e.getState() == EventState.PUBLISHED)
                 .orElseThrow(() -> new NotFoundException(
                         "Published event with id=" + eventId + " was not found"
                 ));
 
-        return eventMapper.toFullDto(event, 0L, 0L);
+        statsClient.hit(EndpointHit.builder()
+                .app("ewm-main-service")
+                .uri("/events/" + eventId)
+                .ip(ip)
+                .timestamp(LocalDateTime.now())
+                .build());
+
+        List<ViewStats> stats = statsClient.getStats(
+                event.getPublishedOn(),
+                LocalDateTime.now(),
+                List.of("/events/" + eventId),
+                true
+        );
+
+        long views = stats.stream()
+                .mapToLong(ViewStats::getHits)
+                .sum();
+
+        return eventMapper.toFullDto(event, 0L, views);
     }
 
     @Transactional(readOnly = true)

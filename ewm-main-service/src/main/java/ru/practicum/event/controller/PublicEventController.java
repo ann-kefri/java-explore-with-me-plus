@@ -1,5 +1,6 @@
 package ru.practicum.event.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,8 +23,11 @@ public class PublicEventController {
     private final PublicEventService eventService;
 
     @GetMapping("/{eventId}")
-    public EventFullDto getEvent(@PathVariable Long eventId) {
-        return eventService.getEvent(eventId);
+    public EventFullDto getEvent(
+            @PathVariable Long eventId,
+            HttpServletRequest request
+    ) {
+        return eventService.getEvent(eventId, request.getRemoteAddr());
     }
 
     @GetMapping
