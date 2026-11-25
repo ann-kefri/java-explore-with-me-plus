@@ -192,7 +192,12 @@ class PublicEventServiceTest {
         assertEquals(1, result.size());
         assertSame(dto, result.getFirst());
 
-        verifyNoInteractions(statsClient);
+        verify(statsClient).getStats(
+                eq(PUBLISHED_ON),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1")),
+                eq(true)
+        );
     }
 
     @Test

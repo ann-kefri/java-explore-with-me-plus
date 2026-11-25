@@ -21,6 +21,8 @@ import ru.practicum.stats.dto.ViewStats;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -82,7 +84,7 @@ public class PublicEventService {
             );
         }
 
-        Specification<Event> specification = Specification
+        Specification<Event> spec = Specification
                 .where(EventSpecifications.published())
                 .and(EventSpecifications.byText(text))
                 .and(EventSpecifications.byCategories(categories))
@@ -97,10 +99,42 @@ public class PublicEventService {
                         .and(Sort.by(Sort.Direction.ASC, "id"))
         );
 
-        return eventRepository.findAll(specification, pageable)
-                .getContent()
-                .stream()
-                .map(event -> eventMapper.toShortDto(event, 0L, 0L))
+        List<Event> events = eventRepository.findAll(spec, pageable)
+                .getContent();
+
+        if (events.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> uris = events.stream()
+                .map(event -> "/events/" + event.getId())
+                .toList();
+
+        LocalDateTime start = events.stream()
+                .map(Event::getPublishedOn)
+                .min(LocalDateTime::compareTo)
+                .orElseThrow();
+
+        List<ViewStats> stats = statsClient.getStats(
+                start,
+                LocalDateTime.now(),
+                uris,
+                true
+        );
+
+        Map<String, Long> viewsByUri = stats.stream()
+                .collect(Collectors.toMap(
+                        ViewStats::getUri,
+                        ViewStats::getHits,
+                        Long::sum
+                ));
+
+        return events.stream()
+                .map(event -> eventMapper.toShortDto(
+                        event,
+                        0L,
+                        viewsByUri.getOrDefault("/events/" + event.getId(), 0L)
+                ))
                 .toList();
     }
 }
