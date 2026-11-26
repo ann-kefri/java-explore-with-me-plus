@@ -6,7 +6,7 @@ import ru.practicum.request.model.ParticipationRequest;
 
 @Component
 public class RequestMapper {
-    public ParticipationRequestDto toDto(ParticipationRequest request) {
+    public static ParticipationRequestDto toDto(ParticipationRequest request) {
         return new ParticipationRequestDto(
                 request.getId(), request.getCreated(), request.getEvent().getId(), request.getRequester().getId(), request.getStatus()
         );

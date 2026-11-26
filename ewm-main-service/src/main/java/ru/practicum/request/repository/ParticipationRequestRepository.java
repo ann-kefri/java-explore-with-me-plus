@@ -9,11 +9,17 @@ import java.util.Optional;
 
 public interface ParticipationRequestRepository extends JpaRepository<ParticipationRequest, Long> {
     Optional<ParticipationRequest> findByIdAndRequesterId(Long id, Long requesterId);
+
     List<ParticipationRequest> findAllByRequesterId(Long requesterId);
-    List<ParticipationRequest> findAllByEventId(Long requesterId);
-    Boolean existsByEventIdAndRequesterId(Long eventId, Long requesterId);
-    Long countByEventIdAndStatus(Long eventId, RequestStatus status);
+
+    List<ParticipationRequest> findAllByEventId(Long eventId);
+
+    boolean existsByEventIdAndRequesterId(Long eventId, Long requesterId);
+
+    long countByEventIdAndStatus(Long eventId, RequestStatus status);
+
     List<ParticipationRequest> findAllByIdInAndEventId(List<Long> ids, Long eventId);
+
     List<ParticipationRequest> findAllByEventIdAndStatus(Long eventId, RequestStatus status);
 
 
