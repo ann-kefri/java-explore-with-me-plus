@@ -1,6 +1,7 @@
 package ru.practicum.request.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.event.model.Event;
@@ -70,7 +71,12 @@ public class RequestService {
                 RequestStatus.CONFIRMED
                 : RequestStatus.PENDING;
         request.setStatus(status);
-        return RequestMapper.toDto(requestRepository.save(request));
+        try {
+            return RequestMapper.toDto(requestRepository.save(request));
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("Requests for event id: " + eventId +
+                    " from user id: " + userId + " already exists");
+        }
     }
 
     @Transactional
@@ -109,6 +115,7 @@ public class RequestService {
         if (request.status() == RequestStatusAction.REJECTED) {
             for (ParticipationRequest req : requests) {
                 req.setStatus(RequestStatus.REJECTED);
+                rejectedRequests.add(RequestMapper.toDto(req));
             }
             requestRepository.saveAll(requests);
             return new EventRequestStatusUpdateResult(confirmedRequests, rejectedRequests);

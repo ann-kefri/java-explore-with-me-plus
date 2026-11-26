@@ -20,13 +20,13 @@ public class UsersEventsRequestsController {
     public List<ParticipationRequestDto> getRequestsByEventForCurrentUser(@PathVariable Long userId, @PathVariable Long eventId) {
         return requestService.getRequestsForMyEvent(userId, eventId);
     }
+
     @PatchMapping
     public EventRequestStatusUpdateResult ConOrRejStatusRequests(
             @RequestBody @Valid EventRequestStatusUpdateRequest request,
             @PathVariable Long userId,
-            @PathVariable Long eventId)
-    {
-        return requestService.confirmedOrRejected(request,userId,eventId);
+            @PathVariable Long eventId) {
+        return requestService.confirmedOrRejected(request, userId, eventId);
     }
 
 }

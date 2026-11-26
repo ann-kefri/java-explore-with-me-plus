@@ -1,6 +1,7 @@
 package ru.practicum.exception;
 
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -42,6 +43,14 @@ public class GlobalExceptionHandler {
                 HttpStatus.CONFLICT,
                 "For the requested operation the conditions are not met.",
                 ex.getMessage()
+        );
+    }
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleIntegrity(DataIntegrityViolationException ex){
+        return buildResponse(
+                HttpStatus.CONFLICT,
+                "Integrity constraint has been violated.",
+                ex.getMostSpecificCause().getMessage()
         );
     }
 

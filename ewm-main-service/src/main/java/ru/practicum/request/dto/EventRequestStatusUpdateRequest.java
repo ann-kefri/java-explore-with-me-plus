@@ -11,4 +11,5 @@ public record EventRequestStatusUpdateRequest(
         List<Long> requestIds,
         @NotNull
         RequestStatusAction status
-) {}
+) {
+}
