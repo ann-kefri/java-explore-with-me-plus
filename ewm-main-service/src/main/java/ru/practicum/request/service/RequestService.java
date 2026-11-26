@@ -8,16 +8,20 @@ import ru.practicum.event.model.EventState;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.request.dto.EventRequestStatusUpdateRequest;
+import ru.practicum.request.dto.EventRequestStatusUpdateResult;
 import ru.practicum.request.dto.ParticipationRequestDto;
 import ru.practicum.request.mapper.RequestMapper;
 import ru.practicum.request.model.ParticipationRequest;
 import ru.practicum.request.model.RequestStatus;
+import ru.practicum.request.model.RequestStatusAction;
 import ru.practicum.request.repository.ParticipationRequestRepository;
 import ru.practicum.user.model.User;
 import ru.practicum.user.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -69,6 +73,83 @@ public class RequestService {
         return RequestMapper.toDto(requestRepository.save(request));
     }
 
+    @Transactional
+    public ParticipationRequestDto cancelCurrentUserRequest(Long userId, Long requestId) {
+        ParticipationRequest request = requestRepository.findByIdAndRequesterId(requestId, userId)
+                .orElseThrow(() ->
+                        new NotFoundException("Request: " + requestId + "with user: " + userId + " not found"));
+        request.setStatus(RequestStatus.CANCELED);
+        return RequestMapper.toDto(requestRepository.save(request));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ParticipationRequestDto> getRequestsForMyEvent(Long userId, Long eventId) {
+        checkUserExists(userId);
+        eventCurrentInitiator(eventId, userId);
+        return requestRepository.findAllByEventId(eventId).stream()
+                .map(RequestMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public EventRequestStatusUpdateResult confirmedOrRejected(EventRequestStatusUpdateRequest request, Long userId, Long eventId) {
+        Event event = eventCurrentInitiator(eventId, userId);
+        List<ParticipationRequest> requests = requestRepository.findAllByIdInAndEventId(request.requestIds(), eventId);
+        if (requests.size() != request.requestIds().size()) {
+            throw new NotFoundException("Requests not found");
+        }
+        boolean hasNotPending = requests
+                .stream()
+                .anyMatch(participationRequest -> participationRequest.getStatus() != RequestStatus.PENDING);
+        if (hasNotPending) {
+            throw new ConflictException("You can change request have status PENDING");
+        }
+        List<ParticipationRequestDto> confirmedRequests = new ArrayList<>();
+        List<ParticipationRequestDto> rejectedRequests = new ArrayList<>();
+        if (request.status() == RequestStatusAction.REJECTED) {
+            for (ParticipationRequest req : requests) {
+                req.setStatus(RequestStatus.REJECTED);
+            }
+            requestRepository.saveAll(requests);
+            return new EventRequestStatusUpdateResult(confirmedRequests, rejectedRequests);
+        }
+        int limit = event.getParticipantLimit();
+        if (limit == 0) {
+            for (ParticipationRequest req : requests) {
+                req.setStatus(RequestStatus.CONFIRMED);
+                confirmedRequests.add(RequestMapper.toDto(req));
+            }
+            requestRepository.saveAll(requests);
+            return new EventRequestStatusUpdateResult(confirmedRequests, rejectedRequests);
+        }
+        long confirmedCount = requestRepository.countByEventIdAndStatus(eventId, RequestStatus.CONFIRMED);
+        long freeSlots = limit - confirmedCount;
+        if (freeSlots <= 0) {
+            throw new ConflictException("Event is full busy");
+        }
+        for (ParticipationRequest req : requests) {
+            if (freeSlots > 0) {
+                req.setStatus(RequestStatus.CONFIRMED);
+                confirmedRequests.add(RequestMapper.toDto(req));
+                freeSlots--;
+            } else {
+                req.setStatus(RequestStatus.REJECTED);
+                rejectedRequests.add(RequestMapper.toDto(req));
+            }
+        }
+        requestRepository.saveAll(requests);
+        if (freeSlots == 0) {
+            List<ParticipationRequest> otherPending = requestRepository.findAllByEventIdAndStatus(
+                    eventId, RequestStatus.PENDING);
+            for (ParticipationRequest req : otherPending) {
+                req.setStatus(RequestStatus.REJECTED);
+                rejectedRequests.add(RequestMapper.toDto(req));
+            }
+            requestRepository.saveAll(otherPending);
+        }
+        return new EventRequestStatusUpdateResult(confirmedRequests, rejectedRequests);
+    }
+
     private void checkUserExists(Long userId) {
         if (!userRepository.existsById(userId)) {
             throw new NotFoundException(
@@ -77,5 +158,10 @@ public class RequestService {
         }
     }
 
-
+    private Event eventCurrentInitiator(Long eventId, Long userId) {
+        return eventRepository.findByIdAndInitiatorId(eventId, userId)
+                .orElseThrow(() -> new NotFoundException(
+                        "Event with: " + eventId + "and user with: " + userId + "not found")
+                );
+    }
 }
