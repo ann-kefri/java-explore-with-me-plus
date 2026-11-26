@@ -22,7 +22,7 @@ public class UsersEventsRequestsController {
     }
 
     @PatchMapping
-    public EventRequestStatusUpdateResult ConOrRejStatusRequests(
+    public EventRequestStatusUpdateResult confirmedOrRejectedStatusRequests(
             @RequestBody @Valid EventRequestStatusUpdateRequest request,
             @PathVariable Long userId,
             @PathVariable Long eventId) {

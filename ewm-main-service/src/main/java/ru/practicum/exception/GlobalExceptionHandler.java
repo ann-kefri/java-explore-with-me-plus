@@ -45,8 +45,9 @@ public class GlobalExceptionHandler {
                 ex.getMessage()
         );
     }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ApiError> handleIntegrity(DataIntegrityViolationException ex){
+    public ResponseEntity<ApiError> handleIntegrity(DataIntegrityViolationException ex) {
         return buildResponse(
                 HttpStatus.CONFLICT,
                 "Integrity constraint has been violated.",
