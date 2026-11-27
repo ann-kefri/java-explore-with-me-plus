@@ -155,7 +155,7 @@ class PrivateEventServiceTest {
                 .thenReturn(Optional.of(new Category()));
 
         assertThrows(
-                ConflictException.class,
+                IllegalArgumentException.class,
                 () -> eventService.createEvent(1L, invalidDto)
         );
 
@@ -247,7 +247,7 @@ class PrivateEventServiceTest {
                 .thenReturn(Optional.of(event));
 
         assertThrows(
-                ConflictException.class,
+                IllegalArgumentException.class,
                 () -> eventService.updateUserEvent(1L, 1L, request)
         );
 

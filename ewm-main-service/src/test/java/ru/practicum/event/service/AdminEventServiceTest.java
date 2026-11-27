@@ -19,6 +19,9 @@ import ru.practicum.event.model.Event;
 import ru.practicum.event.model.EventState;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
+import ru.practicum.request.model.RequestStatus;
+import ru.practicum.request.repository.ConfirmedRequestCount;
+import ru.practicum.request.repository.ParticipationRequestRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,7 +32,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -46,6 +51,9 @@ class AdminEventServiceTest {
     @Mock
     private EventMapper eventMapper;
 
+    @Mock
+    private ParticipationRequestRepository requestRepository;
+
     private AdminEventService eventService;
 
     @BeforeEach
@@ -54,6 +62,7 @@ class AdminEventServiceTest {
 
         eventService = new AdminEventService(
                 eventRepository,
+                requestRepository,
                 eventMapper,
                 eventUpdater
         );
@@ -75,6 +84,11 @@ class AdminEventServiceTest {
         assertEquals(EventState.PUBLISHED, event.getState());
         assertNotNull(event.getPublishedOn());
         verify(eventRepository).save(event);
+
+        verify(requestRepository).countByEventIdAndStatus(
+                1L,
+                RequestStatus.CONFIRMED
+        );
     }
 
     @Test
@@ -112,6 +126,11 @@ class AdminEventServiceTest {
         assertEquals(EventState.CANCELED, event.getState());
         assertNull(event.getPublishedOn());
         verify(eventRepository).save(event);
+
+        verify(requestRepository).countByEventIdAndStatus(
+                1L,
+                RequestStatus.CONFIRMED
+        );
     }
 
     @Test
@@ -150,6 +169,11 @@ class AdminEventServiceTest {
         assertEquals(newDate, event.getEventDate());
         assertEquals(EventState.PUBLISHED, event.getState());
         assertNotNull(event.getPublishedOn());
+
+        verify(requestRepository).countByEventIdAndStatus(
+                1L,
+                RequestStatus.CONFIRMED
+        );
     }
 
     @Test
@@ -185,8 +209,18 @@ class AdminEventServiceTest {
                 any(Pageable.class)
         )).thenReturn(new PageImpl<>(List.of(first, second)));
 
+        when(requestRepository.countByEventIdsAndStatus(
+                eq(List.of(1L, 2L)),
+                eq(RequestStatus.CONFIRMED)
+        )).thenReturn(List.of());
+
         List<EventFullDto> result = eventService.getAdminEvents(
                 null, null, null, null, null, 0, 10
+        );
+
+        verify(requestRepository).countByEventIdsAndStatus(
+                List.of(1L, 2L),
+                RequestStatus.CONFIRMED
         );
 
         assertEquals(2, result.size());
@@ -257,6 +291,94 @@ class AdminEventServiceTest {
                 stateAction,
                 null
         );
+    }
+
+    @Test
+    void getAdminEvents_shouldReturnConfirmedRequestsForMultipleEvents() {
+        Event first = createPendingEvent();
+
+        Event second = createPendingEvent();
+        second.setId(2L);
+
+        when(eventRepository.findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        )).thenReturn(new PageImpl<>(List.of(first, second)));
+
+        ConfirmedRequestCount firstCount = new ConfirmedRequestCount() {
+            @Override
+            public Long getEventId() {
+                return 1L;
+            }
+
+            @Override
+            public Long getCount() {
+                return 3L;
+            }
+        };
+
+        when(requestRepository.countByEventIdsAndStatus(
+                List.of(1L, 2L),
+                RequestStatus.CONFIRMED
+        )).thenReturn(List.of(firstCount));
+
+        eventService.getAdminEvents(
+                null, null, null, null, null, 0, 10
+        );
+
+        verify(eventMapper).toFullDto(first, 3L, 0L);
+        verify(eventMapper).toFullDto(second, 0L, 0L);
+
+        verify(requestRepository, times(1))
+                .countByEventIdsAndStatus(
+                        List.of(1L, 2L),
+                        RequestStatus.CONFIRMED
+                );
+    }
+
+    @Test
+    void updateAdminEvent_shouldReturnConfirmedRequests() {
+        Event event = createPendingEvent();
+
+        UpdateEventAdminRequest request = adminRequest(
+                null,
+                AdminEventStateAction.PUBLISH_EVENT
+        );
+
+        when(eventRepository.findById(1L))
+                .thenReturn(Optional.of(event));
+
+        when(eventRepository.save(event))
+                .thenReturn(event);
+
+        when(requestRepository.countByEventIdAndStatus(
+                1L,
+                RequestStatus.CONFIRMED
+        )).thenReturn(5L);
+
+        eventService.updateAdminEvent(1L, request);
+
+        verify(eventMapper).toFullDto(event, 5L, 0L);
+    }
+
+    @Test
+    void updateAdminEvent_shouldRejectInvalidEventDate() {
+        Event event = createPendingEvent();
+
+        UpdateEventAdminRequest request = adminRequest(
+                LocalDateTime.now().minusDays(1),
+                null
+        );
+
+        when(eventRepository.findById(1L))
+                .thenReturn(Optional.of(event));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eventService.updateAdminEvent(1L, request)
+        );
+
+        verify(eventRepository, never()).save(any());
     }
 
     private Event createPendingEvent() {

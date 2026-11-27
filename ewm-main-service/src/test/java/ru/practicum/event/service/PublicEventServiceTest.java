@@ -47,6 +47,8 @@ class PublicEventServiceTest {
 
     private static final LocalDateTime PUBLISHED_ON =
             LocalDateTime.of(2026, 11, 24, 21, 0);
+    private static final LocalDateTime STATS_START =
+            LocalDateTime.of(2000, 1, 1, 0, 0);
 
     @Mock
     private EventRepository eventRepository;
@@ -70,7 +72,7 @@ class PublicEventServiceTest {
                 .thenReturn(Optional.of(event));
 
         when(statsClient.getStats(
-                eq(PUBLISHED_ON),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1")),
                 eq(true)
@@ -92,7 +94,7 @@ class PublicEventServiceTest {
         ));
 
         verify(statsClient).getStats(
-                eq(PUBLISHED_ON),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1")),
                 eq(true)
@@ -114,7 +116,7 @@ class PublicEventServiceTest {
                 .thenReturn(Optional.of(event));
 
         when(statsClient.getStats(
-                eq(PUBLISHED_ON),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1")),
                 eq(true)
@@ -201,7 +203,7 @@ class PublicEventServiceTest {
         assertSame(dto, result.getFirst());
 
         verify(statsClient).getStats(
-                eq(PUBLISHED_ON),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1")),
                 eq(true)
@@ -278,7 +280,7 @@ class PublicEventServiceTest {
         )).thenReturn(new PageImpl<>(List.of(first, second, third)));
 
         when(statsClient.getStats(
-                eq(first.getPublishedOn()),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1", "/events/2", "/events/3")),
                 eq(true)
@@ -296,7 +298,7 @@ class PublicEventServiceTest {
         verify(eventMapper).toShortDto(third, 0L, 0L);
 
         verify(statsClient).getStats(
-                eq(first.getPublishedOn()),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1", "/events/2", "/events/3")),
                 eq(true)
@@ -330,7 +332,7 @@ class PublicEventServiceTest {
                 .thenReturn(List.of(first, second, third));
 
         when(statsClient.getStats(
-                eq(PUBLISHED_ON),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1", "/events/2", "/events/3")),
                 eq(true)
@@ -359,7 +361,7 @@ class PublicEventServiceTest {
         );
 
         verify(statsClient, times(1)).getStats(
-                eq(PUBLISHED_ON),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1", "/events/2", "/events/3")),
                 eq(true)
@@ -393,7 +395,7 @@ class PublicEventServiceTest {
                 .thenReturn(List.of(first, second, third));
 
         when(statsClient.getStats(
-                eq(PUBLISHED_ON),
+                eq(STATS_START),
                 any(LocalDateTime.class),
                 eq(List.of("/events/1", "/events/2", "/events/3")),
                 eq(true)
@@ -455,6 +457,31 @@ class PublicEventServiceTest {
         verify(eventRepository).findAll(
                 any(Specification.class),
                 any(Pageable.class)
+        );
+    }
+
+    @Test
+    void getEvent_shouldUseValidStatsRangeWhenPublishedOnIsInFuture() {
+        Event event = createPublishedEvent();
+        event.setPublishedOn(LocalDateTime.now().plusDays(1));
+
+        when(eventRepository.findById(1L))
+                .thenReturn(Optional.of(event));
+
+        when(statsClient.getStats(
+                eq(STATS_START),
+                any(LocalDateTime.class),
+                eq(List.of("/events/1")),
+                eq(true)
+        )).thenReturn(List.of());
+
+        eventService.getEvent(1L, TEST_IP);
+
+        verify(statsClient).getStats(
+                eq(STATS_START),
+                argThat(end -> end.isAfter(STATS_START)),
+                eq(List.of("/events/1")),
+                eq(true)
         );
     }
 
