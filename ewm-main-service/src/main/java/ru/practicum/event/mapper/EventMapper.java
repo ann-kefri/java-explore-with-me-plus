@@ -1,7 +1,8 @@
 package ru.practicum.event.mapper;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import ru.practicum.category.dto.CategoryDto;
+import ru.practicum.category.mapper.CategoryMapper;
 import ru.practicum.category.model.Category;
 import ru.practicum.event.dto.EventFullDto;
 import ru.practicum.event.dto.EventShortDto;
@@ -16,7 +17,10 @@ import ru.practicum.user.model.User;
 import java.time.LocalDateTime;
 
 @Component
+@RequiredArgsConstructor
 public class EventMapper {
+
+    private final CategoryMapper categoryMapper;
 
     public Event toEntity(NewEventDto dto, User initiator, Category category) {
         Event event = new Event();
@@ -47,7 +51,7 @@ public class EventMapper {
         return new EventFullDto(
                 event.getId(),
                 event.getAnnotation(),
-                toCategoryDto(event.getCategory()),
+                categoryMapper.toCategoryDto(event.getCategory()),
                 confirmedRequests,
                 event.getCreatedOn(),
                 event.getDescription(),
@@ -72,10 +76,7 @@ public class EventMapper {
         return new EventShortDto(
                 event.getId(),
                 event.getAnnotation(),
-                new CategoryDto(
-                        event.getCategory().getId(),
-                        event.getCategory().getName()
-                ),
+                categoryMapper.toCategoryDto(event.getCategory()),
                 confirmedRequests,
                 event.getEventDate(),
                 new UserShortDto(
@@ -85,13 +86,6 @@ public class EventMapper {
                 event.isPaid(),
                 event.getTitle(),
                 views
-        );
-    }
-
-    private CategoryDto toCategoryDto(Category category) {
-        return new CategoryDto(
-                category.getId(),
-                category.getName()
         );
     }
 
