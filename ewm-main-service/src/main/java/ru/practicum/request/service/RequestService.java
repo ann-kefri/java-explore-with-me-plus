@@ -9,6 +9,7 @@ import ru.practicum.event.model.EventState;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.request.dto.ConfirmedCount;
 import ru.practicum.request.dto.EventRequestStatusUpdateRequest;
 import ru.practicum.request.dto.EventRequestStatusUpdateResult;
 import ru.practicum.request.dto.ParticipationRequestDto;
@@ -23,7 +24,9 @@ import ru.practicum.user.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -170,5 +173,14 @@ public class RequestService {
                 .orElseThrow(() -> new NotFoundException(
                         "Event with: " + eventId + "and user with: " + userId + "not found")
                 );
+    }
+    @Transactional(readOnly = true)
+    public Map<Long, Long> getConfirmedCounts(Collection<Long> eventIds){
+        if (eventIds == null || eventIds.isEmpty()){
+            return Map.of();
+        }
+        return requestRepository.countConfirmedByEventIds(eventIds, RequestStatus.CONFIRMED)
+                .stream()
+                .collect(Collectors.toMap(ConfirmedCount::eventId, ConfirmedCount::count));
     }
 }

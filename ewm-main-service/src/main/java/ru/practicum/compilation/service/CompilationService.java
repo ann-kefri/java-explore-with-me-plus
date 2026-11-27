@@ -16,6 +16,7 @@ import ru.practicum.event.model.Event;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.request.service.RequestService;
 
 import java.util.HashSet;
 import java.util.List;
@@ -30,6 +31,7 @@ public class CompilationService {
     private final CompilationRepository compilationRepository;
     private final EventRepository eventRepository;
     private final CompilationMapper compilationMapper;
+    private final RequestService requestService;
 
     @Transactional
     public CompilationDto create(NewCompilationDto dto) {
@@ -95,7 +97,12 @@ public class CompilationService {
     }
 
     private Map<Long, Long> getConfirmedCounts(Set<Event> events) {
-        // TODO: заменить на requestService.getConfirmedCounts(eventIds) — Яша подставь
-        return Map.of();
+        if (events == null || events.isEmpty()){
+            return Map.of();
+        }
+        List<Long> eventIds = events.stream()
+                .map(Event::getId)
+                .toList();
+        return requestService.getConfirmedCounts(eventIds);
     }
 }
