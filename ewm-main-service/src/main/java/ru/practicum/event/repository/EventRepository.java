@@ -3,8 +3,11 @@ package ru.practicum.event.repository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import ru.practicum.event.model.Event;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,4 +18,13 @@ public interface EventRepository extends
     List<Event> findAllByInitiatorId(Long initiatorId, Pageable pageable);
 
     Optional<Event> findByIdAndInitiatorId(Long eventId, Long initiatorId);
+
+    boolean existsByCategoryId(Long categoryId);
+
+    @Query("SELECT e FROM Event e "
+            + "LEFT JOIN FETCH e.category "
+            + "LEFT JOIN FETCH e.initiator "
+            + "WHERE e.id IN :ids")
+    List<Event> findAllByIdWithDetails(@Param("ids") Collection<Long> ids);
+
 }
