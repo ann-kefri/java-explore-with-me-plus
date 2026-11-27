@@ -19,6 +19,7 @@ import ru.practicum.exception.NotFoundException;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -40,7 +41,8 @@ public class CompilationService {
         compilation.setPinned(dto.pinned());
         compilation.setEvents(resolveEvents(dto.events()));
 
-        return compilationMapper.toCompilationDto(compilationRepository.save(compilation));
+        Compilation saved = compilationRepository.save(compilation);
+        return compilationMapper.toCompilationDto(saved, getConfirmedCounts(saved.getEvents()));
     }
 
     @Transactional
@@ -56,7 +58,7 @@ public class CompilationService {
         if (request.events() != null) {
             compilation.setEvents(resolveEvents(request.events()));
         }
-        return compilationMapper.toCompilationDto(compilation);
+        return compilationMapper.toCompilationDto(compilation, getConfirmedCounts(compilation.getEvents()));
     }
 
     @Transactional
@@ -71,13 +73,13 @@ public class CompilationService {
             return List.of();
         }
         return compilationRepository.findAllWithEventsByIds(ids).stream()
-                .map(compilationMapper::toCompilationDto)
+                .map(c -> compilationMapper.toCompilationDto(c, getConfirmedCounts(c.getEvents())))
                 .toList();
     }
 
-
     public CompilationDto getById(Long compId) {
-        return compilationMapper.toCompilationDto(getCompilationOrThrow(compId));
+        Compilation compilation = getCompilationOrThrow(compId);
+        return compilationMapper.toCompilationDto(compilation, getConfirmedCounts(compilation.getEvents()));
     }
 
     private Compilation getCompilationOrThrow(Long compId) {
@@ -90,5 +92,10 @@ public class CompilationService {
             return new HashSet<>();
         }
         return new HashSet<>(eventRepository.findAllByIdWithDetails(eventIds));
+    }
+
+    private Map<Long, Long> getConfirmedCounts(Set<Event> events) {
+        // TODO: заменить на requestService.getConfirmedCounts(eventIds) — Яша подставь
+        return Map.of();
     }
 }

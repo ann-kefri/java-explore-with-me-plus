@@ -8,6 +8,7 @@ import ru.practicum.event.dto.EventShortDto;
 import ru.practicum.event.mapper.EventMapper;
 
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -17,9 +18,13 @@ public class CompilationMapper {
 
     private final EventMapper eventMapper;
 
-    public CompilationDto toCompilationDto(Compilation compilation) {
+    public CompilationDto toCompilationDto(Compilation compilation, Map<Long, Long> confirmedCounts) {
         Set<EventShortDto> eventDtos = compilation.getEvents().stream()
-                .map(event -> eventMapper.toShortDto(event, 0L, 0L))
+                .map(event -> eventMapper.toShortDto(
+                        event,
+                        confirmedCounts.getOrDefault(event.getId(), 0L),
+                        0L
+                ))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
         return new CompilationDto(
