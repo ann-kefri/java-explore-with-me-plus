@@ -32,6 +32,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PublicEventService {
 
+    private static final LocalDateTime STATS_START =
+            LocalDateTime.of(2000, 1, 1, 0, 0);
+
     private final EventRepository eventRepository;
     private final EventMapper eventMapper;
     private final StatsClient statsClient;
@@ -52,7 +55,7 @@ public class PublicEventService {
                 .build());
 
         List<ViewStats> stats = statsClient.getStats(
-                event.getPublishedOn(),
+                STATS_START,
                 LocalDateTime.now(),
                 List.of("/events/" + eventId),
                 true
@@ -195,13 +198,8 @@ public class PublicEventService {
                 .map(event -> "/events/" + event.getId())
                 .toList();
 
-        LocalDateTime start = events.stream()
-                .map(Event::getPublishedOn)
-                .min(LocalDateTime::compareTo)
-                .orElseThrow();
-
         return statsClient.getStats(
-                        start,
+                        STATS_START,
                         LocalDateTime.now(),
                         uris,
                         true

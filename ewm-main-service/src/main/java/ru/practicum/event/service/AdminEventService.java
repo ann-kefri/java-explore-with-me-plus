@@ -16,15 +16,21 @@ import ru.practicum.event.repository.EventRepository;
 import ru.practicum.event.repository.EventSpecifications;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.request.model.RequestStatus;
+import ru.practicum.request.repository.ConfirmedRequestCount;
+import ru.practicum.request.repository.ParticipationRequestRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class AdminEventService {
 
     private final EventRepository eventRepository;
+    private final ParticipationRequestRepository requestRepository;
     private final EventMapper eventMapper;
     private final EventUpdater eventUpdater;
 
@@ -42,7 +48,7 @@ public class AdminEventService {
 
         if (dto.eventDate() != null) {
             if (dto.eventDate().isBefore(LocalDateTime.now().plusHours(1))) {
-                throw new ConflictException(
+                throw new IllegalArgumentException(
                         "Event date must be at least one hour in the future"
                 );
             }
@@ -84,7 +90,12 @@ public class AdminEventService {
 
         Event savedEvent = eventRepository.save(event);
 
-        return eventMapper.toFullDto(savedEvent, 0L, 0L);
+        long confirmedRequests = requestRepository.countByEventIdAndStatus(
+                savedEvent.getId(),
+                RequestStatus.CONFIRMED
+        );
+
+        return eventMapper.toFullDto(savedEvent, confirmedRequests, 0L);
     }
 
     @Transactional(readOnly = true)
@@ -123,10 +134,50 @@ public class AdminEventService {
                 Sort.by(Sort.Direction.ASC, "id")
         );
 
-        return eventRepository.findAll(specification, pageable)
-                .getContent()
-                .stream()
-                .map(event -> eventMapper.toFullDto(event, 0L, 0L))
+        List<Event> events = eventRepository.findAll(specification, pageable)
+                .getContent();
+
+        if (events.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> eventIds = events.stream()
+                .map(Event::getId)
                 .toList();
+
+        Map<Long, Long> confirmedByEvent = requestRepository
+                .countByEventIdsAndStatus(eventIds, RequestStatus.CONFIRMED)
+                .stream()
+                .collect(Collectors.toMap(
+                        ConfirmedRequestCount::getEventId,
+                        ConfirmedRequestCount::getCount
+                ));
+
+        return events.stream()
+                .map(event -> eventMapper.toFullDto(
+                        event,
+                        confirmedByEvent.getOrDefault(event.getId(), 0L),
+                        0L
+                ))
+                .toList();
+    }
+
+    private Map<Long, Long> getConfirmedRequests(List<Event> events) {
+        if (events.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> eventIds = events.stream()
+                .map(Event::getId)
+                .toList();
+
+        return requestRepository.countByEventIdsAndStatus(
+                        eventIds,
+                        RequestStatus.CONFIRMED
+                ).stream()
+                .collect(Collectors.toMap(
+                        ConfirmedRequestCount::getEventId,
+                        ConfirmedRequestCount::getCount
+                ));
     }
 }

@@ -46,7 +46,7 @@ public class PrivateEventService {
                 ));
 
         if (dto.eventDate().isBefore(LocalDateTime.now().plusHours(2))) {
-            throw new ConflictException(
+            throw new IllegalArgumentException(
                     "Event date must be at least two hours in the future"
             );
         }
@@ -116,7 +116,7 @@ public class PrivateEventService {
 
         if (dto.eventDate() != null) {
             if (dto.eventDate().isBefore(LocalDateTime.now().plusHours(2))) {
-                throw new ConflictException(
+                throw new IllegalArgumentException(
                         "Event date must be at least two hours in the future"
                 );
             }
