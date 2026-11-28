@@ -16,11 +16,15 @@ import ru.practicum.event.model.Event;
 import ru.practicum.event.repository.EventRepository;
 import ru.practicum.exception.ConflictException;
 import ru.practicum.exception.NotFoundException;
+import ru.practicum.request.model.RequestStatus;
+import ru.practicum.request.repository.ConfirmedRequestCount;
+import ru.practicum.request.repository.ParticipationRequestRepository;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +33,7 @@ public class CompilationService {
 
     private final CompilationRepository compilationRepository;
     private final EventRepository eventRepository;
+    private final ParticipationRequestRepository requestRepository;
     private final CompilationMapper compilationMapper;
 
     @Transactional
@@ -95,7 +100,17 @@ public class CompilationService {
     }
 
     private Map<Long, Long> getConfirmedCounts(Set<Event> events) {
-        // TODO: заменить на requestService.getConfirmedCounts(eventIds) — Яша подставь
-        return Map.of();
+        if (events.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> eventIds = events.stream()
+                .map(Event::getId)
+                .toList();
+
+        return requestRepository.countByEventIdsAndStatus(eventIds, RequestStatus.CONFIRMED).stream()
+                .collect(Collectors.toMap(
+                        ConfirmedRequestCount::getEventId,
+                        ConfirmedRequestCount::getCount
+                ));
     }
 }
