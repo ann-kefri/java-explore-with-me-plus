@@ -1,0 +1,27 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ewm-main-service
+  datasource:
+    url: jdbc:postgresql://localhost:6542/ewm
+    username: ewm
+    password: ewm
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+stats-server:
+  url: http://localhost:9090
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
